@@ -1,0 +1,6 @@
+[submodule "Luddite-Engine"]
+	path = Luddite-Engine
+	url = https://github.com/Aquaticholic/Luddite-Engine
+[submodule "ThirdParty/RuntimeCompiledCPlusPlus"]
+	path = ThirdParty/RuntimeCompiledCPlusPlus
+	url = https://github.com/Aquaticholic/RuntimeCompiledCPlusPlus

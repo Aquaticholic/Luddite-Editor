@@ -2,8 +2,14 @@
 #include "Luddite/Core/EntryPoint.hpp"
 #include "Editor/pch.hpp"
 
-#include "RuntimeObjectSystem.h"
+//Events
+#include "Editor/Events.hpp"
 
+//IO
+#include "Editor/Input.hpp"
+
+//Runtime
+#include "RuntimeObjectSystem.h"
 #include "RCCppLogger.hpp"
 #include "SystemTable.h"
 #include "Editor/GameInstance.hpp"
@@ -13,6 +19,7 @@
 
 //Panels
 #include "Editor/Panels/ViewportPanel.hpp"
+#include "Editor/Panels/ScenePanel.hpp"
 
 static RCCppLogger g_Logger;
 static SystemTable g_SystemTable;
@@ -37,44 +44,82 @@ class Editor : public Luddite::Application
         void Initialize()
         {
                 m_pViewportPanel = std::make_unique<ViewportPanel>();
+                m_pScenePanel = std::make_unique<ScenePanel>();
+
                 m_World.RegisterSystem<S_SceneSubmitter>();
                 m_World.ConfigureSystems();
 
 
                 {
                         auto e = m_World.CreateEntity();
+                        e.AddComponent<C_Name>("Monkey See");
                         auto& transform = e.AddComponent<C_Transform3D>();
-                        // transform.Translation.x = 1.f;
-                        // transform.Translation.y = 1.f;
-                        // transform.Translation.z = 1.f;
-                        // transform.Rotation.y = glm::pi<float>();
+                        e.AddComponent<C_Model>(Luddite::ModelLoader::GetBasicModel("Assets/suzanne.obj"));
+                }
+
+                {
+                        auto e = m_World.CreateEntity();
+                        e.AddComponent<C_Name>("Monkey Do");
+                        auto& transform = e.AddComponent<C_Transform3D>();
+                        transform.Translation.x = 1.f;
                         e.AddComponent<C_Model>(Luddite::ModelLoader::GetBasicModel("Assets/suzanne.obj"));
                         m_SelectedEntityID = e.GetID();
+                }
+
+                {
+                        auto cam = m_World.CreateEntity();
+                        auto& transform = cam.AddComponent<C_Transform3D>();
+                        transform.Translation.z = -5.f;
+                        // transform.Rotation.y = glm::pi<float>();
+                        cam.AddComponent<C_Camera>();
+                        m_World.SetSingleton<C_ActiveCamera>(cam.GetID());
                 }
         }
 
         void OnUpdate(float delta_time)
         {
-                g_SystemTable.pGameInstanceI->OnUpdate(delta_time);
+                for (auto event : Luddite::Events::GetList<Luddite::KeyPressEvent>())
+                        if (event.key_code == Luddite::Keys::ShiftLeft)
+                                EditorPersistentInput::shift_down = true;
+                for (auto event : Luddite::Events::GetList<Luddite::KeyReleaseEvent>())
+                        if (event.key_code == Luddite::Keys::ShiftLeft)
+                                EditorPersistentInput::shift_down = false;
+
                 UpdateRCCpp(delta_time);
+                if (m_GameRunning)
+                        g_SystemTable.pGameInstanceI->OnUpdate(delta_time);
         }
 
         void OnRender(float lerp_alpha)
         {
                 if (m_pViewportPanel->ShowWindow)
                 {
-                        m_World.UpdateSystem<S_SceneSubmitter>(m_World, lerp_alpha);
                         m_pViewportPanel->CheckForResize();
-                        Luddite::Renderer::Draw(m_pViewportPanel->GetRenderTarget(), m_pViewportPanel->m_Camera);
+                        if (!m_GameRunning)
+                        {
+                                m_World.UpdateSystem<S_SceneSubmitter>(m_World, lerp_alpha);
+                                Luddite::Renderer::Draw(m_pViewportPanel->GetRenderTarget(), m_pViewportPanel->m_Camera);
+                        }
+                        else
+                        {
+                                g_SystemTable.pGameInstanceI->OnRender(lerp_alpha, m_pViewportPanel->GetRenderTarget());
+                        }
                 }
-                g_SystemTable.pGameInstanceI->OnRender(lerp_alpha, m_pMainWindow->GetRenderTarget());
+                // g_SystemTable.pGameInstanceI->OnRender(lerp_alpha, m_pMainWindow->GetRenderTarget());
         }
 
         void OnImGuiRender(float lerp_alpha)
         {
                 RenderImGuiDockspace();
+                m_pScenePanel->Draw(m_World, m_SelectedEntityID);
                 m_pViewportPanel->Draw(m_World, m_SelectedEntityID);
                 g_SystemTable.pGameInstanceI->OnImGuiRender(lerp_alpha, m_pMainWindow->GetRenderTarget());
+
+                if (Luddite::Events::GetList<RunGameEvent>().GetSize() > 0)
+                {
+                        Luddite::Events::GetList<RunGameEvent>().Clear();
+                        RunGameInstance();
+                }
         }
 
         void RenderImGuiDockspace()
@@ -95,7 +140,7 @@ class Editor : public Luddite::Application
                 ImGui::PopStyleVar(2);
                 //DockSpace
                 // ImGuiIO& io = ImGui::GetIO();
-                ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
+                ImGuiID dockspace_id = ImGui::GetID("Dockspace");
                 ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
 
                 static auto first_time = true;
@@ -108,8 +153,8 @@ class Editor : public Luddite::Application
 
                         auto dock_id_left = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.2f, nullptr, &dockspace_id);
 
-                        ImGui::DockBuilderDockWindow("Viewport", dockspace_id);
-                        ImGui::DockBuilderDockWindow("Left", dock_id_left);
+                        ImGui::DockBuilderDockWindow("Viewport", dockspace_id);;
+                        ImGui::DockBuilderDockWindow("Scene", dock_id_left);
 
                         ImGui::DockBuilderFinish(dockspace_id);
                 }
@@ -126,17 +171,25 @@ class Editor : public Luddite::Application
                         }
                         if (ImGui::BeginMenu("View"))
                         {
-                                static bool selected = true;
+                                // static bool selected = true;
                                 ImGui::MenuItem("Viewport", NULL, &m_pViewportPanel->ShowWindow);
+                                ImGui::MenuItem("Scene", NULL, &m_pScenePanel->ShowWindow);
                                 ImGui::EndMenu();
                         }
                         ImGui::EndMenuBar();
                 }
                 ImGui::End();
+        }
 
-                ImGui::Begin("Left");
-                ImGui::Text("Hello, left!");
-                ImGui::End();
+        void RunGameInstance()
+        {
+                // g_SystemTable.pGameInstanceI->Initialize();
+                auto layer = g_SystemTable.pGameInstanceI->GetLayerStack().GetLayerByName("Test");
+                if (layer)
+                {
+                        g_SystemTable.pGameInstanceI->LoadWorld(layer, m_World);
+                }
+                m_GameRunning = true;
         }
 
         bool InitRCCpp()
@@ -189,11 +242,16 @@ class Editor : public Luddite::Application
         {
         }
 
+
+
         private:
         Luddite::World m_World;
         Luddite::EntityID m_SelectedEntityID = Luddite::NullEntityID;
+        bool m_GameRunning = false;
+        std::string m_CurrentLayer = "Test";
 
         std::unique_ptr<ViewportPanel> m_pViewportPanel;
+        std::unique_ptr<ScenePanel> m_pScenePanel;
 };
 
 Luddite::Application* Luddite::CreateApplication()

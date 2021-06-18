@@ -1,6 +1,11 @@
 #pragma once
 #include "Editor/pch.hpp"
 #include "Editor/ECS/Components/Components.hpp"
+#include "Editor/Input.hpp"
+
+//Events
+#include "Editor/Events.hpp"
+
 
 struct ViewportPanel
 {
@@ -39,8 +44,16 @@ struct ViewportPanel
                 if (ShowWindow)
                 {
                         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-                        if (ImGui::Begin("Viewport", &ShowWindow, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse))
+                        if (ImGui::Begin("Viewport", &ShowWindow, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar))
                         {
+                                if (ImGui::BeginMenuBar())
+                                {
+                                        if (ImGui::SmallButton("Play"))
+                                        {
+                                                Luddite::Events::GetList<RunGameEvent>().DispatchEvent();
+                                        }
+                                        ImGui::EndMenuBar();
+                                }
                                 auto max = ImGui::GetWindowContentRegionMax();
                                 auto min = ImGui::GetWindowContentRegionMin();
                                 size = glm::ivec2(max.x - min.x, max.y - min.y);
@@ -48,6 +61,7 @@ struct ViewportPanel
 
                                 if (selected_id != Luddite::NullEntityID)
                                 {
+                                        LD_LOG_INFO("ID: {}", selected_id);
                                         ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, size.x, size.y);
 
                                         ImGuizmo::SetOrthographic(false);
@@ -76,17 +90,41 @@ struct ViewportPanel
                                 }
                                 if (ImGui::IsMouseHoveringRect(ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y), ImVec2(ImGui::GetWindowPos().x + size.x, ImGui::GetWindowPos().y + size.y)))
                                 {
+                                        // for (auto event: Luddite::Events::GetList<Luddite::MouseScrollEvent>())
+                                        // {
+                                        //         m_CamZoom *= glm::pow(0.9f, event.scrolls);
+                                        //         LD_LOG_INFO("Scrolls: {}", event.scrolls);
+                                        // }
+
+                                        m_CamZoom *= glm::pow(0.85f, ImGui::GetIO().MouseWheel);
+                                        m_CamZoom = glm::clamp(m_CamZoom, 0.01f, 500.f);
+
+
                                         if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle))
                                         {
-                                                ImVec2 drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
+                                                ImVec2 im_drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
                                                 ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
-                                                m_CamYaw += drag.x * 0.004;
-                                                m_CamPitch += drag.y * 0.004;
-                                                m_CamPitch = glm::clamp(m_CamPitch, -1.57f, 1.57f);
+                                                if (EditorPersistentInput::shift_down)
+                                                {
+                                                        glm::vec2 drag {im_drag.x, im_drag.y};
+                                                        m_CamCenter -= glm::vec3(
+                                                                glm::vec4(drag.x * 0.0013 * m_CamZoom,
+                                                                        -drag.y * 0.0013 * m_CamZoom,
+                                                                        0.f, 0.f)
+                                                                * glm::rotate(m_CamPitch, glm::vec3(1.f, 0.f, 0.f))
+                                                                * glm::rotate(m_CamYaw, glm::vec3(0.f, 1.f, 0.f))
+                                                                );
+                                                }
+                                                else
+                                                {
+                                                        m_CamYaw += im_drag.x * 0.004;
+                                                        m_CamPitch += im_drag.y * 0.004;
+                                                        m_CamPitch = glm::clamp(m_CamPitch, -1.57f, 1.57f);
+                                                }
                                         }
                                 }
-                                m_Camera.Position = glm::vec3(
-                                        glm::vec4(0.f, 0.f, 5.f, 0.f)
+                                m_Camera.Position = m_CamCenter + glm::vec3(
+                                        glm::vec4(0.f, 0.f, m_CamZoom, 0.f)
                                         * glm::rotate(m_CamPitch, glm::vec3(1.f, 0.f, 0.f))
                                         * glm::rotate(m_CamYaw, glm::vec3(0.f, 1.f, 0.f))
                                         );
@@ -109,4 +147,5 @@ struct ViewportPanel
         glm::vec3 m_CamCenter = glm::vec3(0.f);
         float m_CamPitch = 0.f;
         float m_CamYaw = 0.f;
+        float m_CamZoom = 10.f;
 };

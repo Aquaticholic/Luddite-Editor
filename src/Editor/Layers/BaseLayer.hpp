@@ -15,6 +15,7 @@ class BaseLayer : public Luddite::Layer
         void Update(double delta_time);
         void Render(double alpha, Luddite::RenderTarget render_target);
         void RenderImGui(double alpha, Luddite::RenderTarget render_target);
+        const char* GetName() {return "Test";}
 
         private:
         // std::unique_ptr<ViewportPanel> m_pViewportPanel;

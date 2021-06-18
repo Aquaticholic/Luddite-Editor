@@ -39,6 +39,7 @@ struct GameInstance : GameInstanceI, TInterface<IID_IRCCPP_GAME_INSTANCE, IObjec
                 // std::cout << "please work" << std::endl;
 
                 m_LayerStack.PushLayer(std::make_shared<BaseLayer>());
+                m_LayerStack.UpdateStack();
         }
 
         void OnUpdate(float delta_time) override
@@ -55,6 +56,14 @@ struct GameInstance : GameInstanceI, TInterface<IID_IRCCPP_GAME_INSTANCE, IObjec
         {
                 m_LayerStack.RenderLayersImGui(lerp_alpha, render_target);
         }
+
+        void LoadWorld(std::shared_ptr<Luddite::Layer> layer, Luddite::World& world)
+        {
+                world.CloneTo<C_Transform3D, C_Model, C_Camera>(layer->GetWorld());
+                world.CloneSingletonsTo<C_ActiveCamera>(layer->GetWorld());
+        }
+
+        Luddite::LayerStack& GetLayerStack() {return m_LayerStack;}
 
         Luddite::LayerStack m_LayerStack;
 };

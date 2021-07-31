@@ -1,23 +1,28 @@
 #pragma once
 #include "Editor/pch.hpp"
-#include "Editor/ECS/Components/Components.hpp"
+#include "Editor/EditorState.hpp"
+#include "Editor/History.hpp"
 
+namespace Editor
+{
 struct ScenePanel
 {
         ScenePanel()
         {
         }
 
-        void Draw(Luddite::World& world, Luddite::EntityID& selected_id)
+        void Draw(EditorState& state, History& history)
         {
                 if (ShowWindow)
                 {
                         // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
                         if (ImGui::Begin("Scene", &ShowWindow, ImGuiWindowFlags_NoCollapse))
                         {
-                                world.each([&](Luddite::EntityID id) {
-                                        DrawEntityTree(world.GetEntityFromID(id), selected_id);
-                                });
+                                if (ImGui::IsMouseDown(0) && ImGui::IsWindowHovered())
+                                        state.m_SelectedEntityID = Luddite::NullEntityID;
+                                state.m_World.each([&](Luddite::EntityID id) {
+                                                DrawEntityTree(state.m_World.GetEntityFromID(id), state.m_SelectedEntityID);
+                                        });
                                 // for (auto id : world.each())
                                 // {
                                 //         LD_LOG_INFO("id: {}", id);
@@ -53,3 +58,4 @@ struct ScenePanel
                 }
         }
 };
+}

@@ -7,7 +7,8 @@ void BaseLayer::Initialize()
 {
         m_World.RegisterSystem<S_SceneSubmitter>();
         m_World.RegisterSystem<S_RenderActiveCamera>();
-        // m_World.ConfigureSystems();
+        m_World.RegisterSystem<S_Physics>();
+        m_World.ConfigureSystems();
 
         // {
         //         auto e = m_World.CreateEntity();
@@ -27,12 +28,7 @@ void BaseLayer::HandleEvents()
 
 void BaseLayer::Update(double delta_time)
 {
-        LD_LOG_INFO("TESTUPDATE");
-        for (auto &&[id, transform] : m_World.GetView<C_Transform3D>(Luddite::Exclude<C_Camera>).each())
-        {
-                LD_LOG_INFO("TESTUPDATETRANSFORM, {}", transform.Translation.y);
-                transform.Translation.y -= 0.001;
-        }
+        m_World.UpdateSystem<S_Physics>(m_World, delta_time);
 }
 
 void BaseLayer::Render(double alpha, Luddite::RenderTarget render_target)

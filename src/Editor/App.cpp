@@ -1,12 +1,14 @@
 #define LD_ENTRYPOINT
 #include "Luddite/Core/EntryPoint.hpp"
 #include "Editor/pch.hpp"
+#include "Editor/EditorState.hpp"
+#include "Editor/History.hpp"
 
 //Events
 #include "Editor/Events.hpp"
 
 //IO
-#include "Editor/Input.hpp"
+#include "Editor/Keybinds.hpp"
 
 //Runtime
 #include "RuntimeObjectSystem.h"
@@ -20,7 +22,10 @@
 //Panels
 #include "Editor/Panels/ViewportPanel.hpp"
 #include "Editor/Panels/ScenePanel.hpp"
+#include "Editor/Panels/ComponentsPanel.hpp"
 
+namespace Editor
+{
 static RCCppLogger g_Logger;
 static SystemTable g_SystemTable;
 
@@ -43,61 +48,89 @@ class Editor : public Luddite::Application
 
         void Initialize()
         {
+                KeyBinds::Init();
                 m_pViewportPanel = std::make_unique<ViewportPanel>();
                 m_pScenePanel = std::make_unique<ScenePanel>();
+                m_pComponentsPanel = std::make_unique<ComponentsPanel>();
 
-                m_World.RegisterSystem<S_SceneSubmitter>();
-                m_World.ConfigureSystems();
+                m_EditorState.m_World.RegisterSystem<S_SceneSubmitter>();
+                m_EditorState.m_World.ConfigureSystems();
 
 
                 {
-                        auto e = m_World.CreateEntity();
+                        auto e = m_EditorState.m_World.CreateEntity();
                         e.AddComponent<C_Name>("Monkey See");
                         auto& transform = e.AddComponent<C_Transform3D>();
-                        e.AddComponent<C_Model>(Luddite::ModelLoader::GetBasicModel("Assets/suzanne.obj"));
+                        e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(13985675099142567469));
+                        auto& rb = e.AddComponent<C_RigidBody>();
+                        rb.mass = 0.f;
                 }
 
                 {
-                        auto e = m_World.CreateEntity();
+                        auto e = m_EditorState.m_World.CreateEntity();
                         e.AddComponent<C_Name>("Monkey Do");
                         auto& transform = e.AddComponent<C_Transform3D>();
                         transform.Translation.x = 1.f;
-                        e.AddComponent<C_Model>(Luddite::ModelLoader::GetBasicModel("Assets/suzanne.obj"));
-                        m_SelectedEntityID = e.GetID();
+                        e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(11702536871773590062));
+                        C_CollisionShape::CollisionShape m_Shape;
+                        m_Shape.type = C_CollisionShape::Shape::Box;
+                        m_Shape.data.x = 1.;
+                        m_Shape.data.y = 1.;
+                        m_Shape.data.z = 1.;
+                        e.AddComponent<C_CollisionShape>().shapes.push_back(m_Shape);
+                        e.AddComponent<C_RigidBody>();
+                        m_EditorState.m_SelectedEntityID = e.GetID();
                 }
 
                 {
-                        auto cam = m_World.CreateEntity();
+                        auto cam = m_EditorState.m_World.CreateEntity();
                         auto& transform = cam.AddComponent<C_Transform3D>();
-                        transform.Translation.z = -5.f;
-                        // transform.Rotation.y = glm::pi<float>();
+                        transform.Translation.z = 5.f;
+                        // transform.r
+                        transform.Rotation.y = glm::pi<float>();
                         cam.AddComponent<C_Camera>();
-                        m_World.SetSingleton<C_ActiveCamera>(cam.GetID());
+                        m_EditorState.m_World.SetSingleton<C_ActiveCamera>(cam.GetID());
+                }
+
+                {
+                        auto light = m_EditorState.m_World.CreateEntity();
+                        auto& transform = light.AddComponent<C_Transform3D>();
+                        transform.Translation.y = 1.5f;
+                        auto& c_light = light.AddComponent<C_PointLight>();
+                        c_light.Range = 10.f;
                 }
         }
 
         void OnUpdate(float delta_time)
         {
-                for (auto event : Luddite::Events::GetList<Luddite::KeyPressEvent>())
-                        if (event.key_code == Luddite::Keys::ShiftLeft)
-                                EditorPersistentInput::shift_down = true;
-                for (auto event : Luddite::Events::GetList<Luddite::KeyReleaseEvent>())
-                        if (event.key_code == Luddite::Keys::ShiftLeft)
-                                EditorPersistentInput::shift_down = false;
-
                 UpdateRCCpp(delta_time);
-                if (m_GameRunning)
+                if (m_EditorState.m_GameRunning)
                         g_SystemTable.pGameInstanceI->OnUpdate(delta_time);
         }
 
         void OnRender(float lerp_alpha)
         {
+                KeyBinds::Update();
+
+                // if (KeyBinds::ModsPressed(0))
+                // if (KeyBinds::ModsPressed(Luddite::IO::GetModBit(Luddite::Keys::ShiftLeft)))
+                if (KeyBinds::Pressed(eKeyBinds::Undo))
+                        m_History.Undo();
+
+                if (KeyBinds::Pressed(eKeyBinds::Redo))
+                        m_History.Redo();
+                // case Luddite::Keys::Z:
+                //         if (EditorPersistentInput::ctrl_down && !EditorPersistentInput::shift_down && !EditorPersistentInput::alt_down)
+                //         if (EditorPersistentInput::ctrl_down && EditorPersistentInput::shift_down && !EditorPersistentInput::alt_down)
+                //                 m_History.Redo();
+                //         break;
+
                 if (m_pViewportPanel->ShowWindow)
                 {
                         m_pViewportPanel->CheckForResize();
-                        if (!m_GameRunning)
+                        if (!m_EditorState.m_GameRunning)
                         {
-                                m_World.UpdateSystem<S_SceneSubmitter>(m_World, lerp_alpha);
+                                m_EditorState.m_World.UpdateSystem<S_SceneSubmitter>(m_EditorState.m_World, lerp_alpha);
                                 Luddite::Renderer::Draw(m_pViewportPanel->GetRenderTarget(), m_pViewportPanel->m_Camera);
                         }
                         else
@@ -111,8 +144,9 @@ class Editor : public Luddite::Application
         void OnImGuiRender(float lerp_alpha)
         {
                 RenderImGuiDockspace();
-                m_pScenePanel->Draw(m_World, m_SelectedEntityID);
-                m_pViewportPanel->Draw(m_World, m_SelectedEntityID);
+                m_pScenePanel->Draw(m_EditorState, m_History);
+                m_pViewportPanel->Draw(m_EditorState, m_History);
+                m_pComponentsPanel->Draw(m_EditorState, m_History);
                 g_SystemTable.pGameInstanceI->OnImGuiRender(lerp_alpha, m_pMainWindow->GetRenderTarget());
 
                 if (Luddite::Events::GetList<RunGameEvent>().GetSize() > 0)
@@ -151,10 +185,13 @@ class Editor : public Luddite::Application
                         ImGui::DockBuilderAddNode(dockspace_id, dockspace_flags | ImGuiDockNodeFlags_DockSpace);
                         ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
 
-                        auto dock_id_left = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.2f, nullptr, &dockspace_id);
+                        auto dock_id_right = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, 0.25f, nullptr, &dockspace_id);
+                        auto dock_id_left = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.3f, nullptr, &dockspace_id);
+                        // auto dock_id_bottom_left = ImGui::DockBuilderSplitNode(dock_id_left, ImGuiDir_Down, 0.3f, nullptr, &dock_id_left);
 
                         ImGui::DockBuilderDockWindow("Viewport", dockspace_id);;
                         ImGui::DockBuilderDockWindow("Scene", dock_id_left);
+                        ImGui::DockBuilderDockWindow("Components", dock_id_right);
 
                         ImGui::DockBuilderFinish(dockspace_id);
                 }
@@ -174,6 +211,7 @@ class Editor : public Luddite::Application
                                 // static bool selected = true;
                                 ImGui::MenuItem("Viewport", NULL, &m_pViewportPanel->ShowWindow);
                                 ImGui::MenuItem("Scene", NULL, &m_pScenePanel->ShowWindow);
+                                ImGui::MenuItem("Components", NULL, &m_pComponentsPanel->ShowWindow);
                                 ImGui::EndMenu();
                         }
                         ImGui::EndMenuBar();
@@ -187,9 +225,9 @@ class Editor : public Luddite::Application
                 auto layer = g_SystemTable.pGameInstanceI->GetLayerStack().GetLayerByName("Test");
                 if (layer)
                 {
-                        g_SystemTable.pGameInstanceI->LoadWorld(layer, m_World);
+                        g_SystemTable.pGameInstanceI->LoadWorld(layer, m_EditorState.m_World);
                 }
-                m_GameRunning = true;
+                m_EditorState.m_GameRunning = true;
         }
 
         bool InitRCCpp()
@@ -211,7 +249,7 @@ class Editor : public Luddite::Application
                 #endif
 
                 // ensure include directories are set - use location of this file as starting point
-                //this file needs to be in the src/editor folder
+                //this file (App.cpp) must remain in the src/editor folder
                 FileSystemUtils::Path basePath = g_SystemTable.pRuntimeObjectSystem->FindFile(__FILE__).ParentPath().ParentPath();
                 #define ADD_DIR(path) g_SystemTable.pRuntimeObjectSystem->AddIncludeDir(#path);
                 ENGINE_INCLUDE_DIRS
@@ -242,19 +280,16 @@ class Editor : public Luddite::Application
         {
         }
 
-
-
         private:
-        Luddite::World m_World;
-        Luddite::EntityID m_SelectedEntityID = Luddite::NullEntityID;
-        bool m_GameRunning = false;
-        std::string m_CurrentLayer = "Test";
-
+        EditorState m_EditorState;
+        History m_History;
         std::unique_ptr<ViewportPanel> m_pViewportPanel;
         std::unique_ptr<ScenePanel> m_pScenePanel;
+        std::unique_ptr<ComponentsPanel> m_pComponentsPanel;
 };
+}
 
 Luddite::Application* Luddite::CreateApplication()
 {
-        return new Editor();
+        return new Editor::Editor();
 }

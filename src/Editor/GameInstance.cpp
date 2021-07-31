@@ -59,7 +59,11 @@ struct GameInstance : GameInstanceI, TInterface<IID_IRCCPP_GAME_INSTANCE, IObjec
 
         void LoadWorld(std::shared_ptr<Luddite::Layer> layer, Luddite::World& world)
         {
-                world.CloneTo<C_Transform3D, C_Model, C_Camera>(layer->GetWorld());
+                world.CloneTo<
+                        C_Transform3D, C_Model, C_Camera,
+                        C_CollisionShape, C_Collider, C_RigidBody,
+                        C_PointLight, C_SpotLight, C_DirectionalLight
+                        >(layer->GetWorld());
                 world.CloneSingletonsTo<C_ActiveCamera>(layer->GetWorld());
         }
 

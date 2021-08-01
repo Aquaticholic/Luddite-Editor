@@ -36,8 +36,6 @@ struct GameInstance : GameInstanceI, TInterface<IID_IRCCPP_GAME_INSTANCE, IObjec
         void Initialize() override
         {
                 LD_LOG_INFO("Initialized");
-                // std::cout << "please work" << std::endl;
-
                 m_LayerStack.PushLayer(std::make_shared<BaseLayer>());
                 m_LayerStack.UpdateStack();
         }

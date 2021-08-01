@@ -20,8 +20,17 @@ struct ScenePanel
                         {
                                 if (ImGui::IsMouseDown(0) && ImGui::IsWindowHovered())
                                         state.m_SelectedEntityID = Luddite::NullEntityID;
+
+                                if (ImGui::BeginPopupContextWindow(0, 1, false))
+                                {
+                                        if (ImGui::MenuItem("Create Entity"))
+                                        {
+                                                state.m_SelectedEntityID = history.ExecuteCommand<CreateEmptyEntityCommand>(state.m_World)->id;
+                                        }
+                                        ImGui::EndPopup();
+                                }
                                 state.m_World.each([&](Luddite::EntityID id) {
-                                                DrawEntityTree(state.m_World.GetEntityFromID(id), state.m_SelectedEntityID);
+                                                DrawEntityTree(state.m_World.GetEntityFromID(id), state);
                                         });
                                 // for (auto id : world.each())
                                 // {
@@ -35,10 +44,10 @@ struct ScenePanel
 
         bool ShowWindow = true;
         private:
-        void DrawEntityTree(Luddite::Entity entity, Luddite::EntityID& selected_id)
+        void DrawEntityTree(Luddite::Entity entity, EditorState& state)
         {
                 ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-                if (entity.GetID() == selected_id)
+                if (entity.GetID() == state.m_SelectedEntityID)
                         flags |= ImGuiTreeNodeFlags_Selected;
                 C_Name* c_name = entity.TryComponent<C_Name>();
                 const char* name;
@@ -49,7 +58,14 @@ struct ScenePanel
                 bool opened = ImGui::TreeNodeEx((void*)entity.GetID(), flags, name);
                 if (ImGui::IsItemClicked())
                 {
-                        selected_id = entity.GetID();
+                        state.m_SelectedEntityID = entity.GetID();
+                }
+
+                if (ImGui::BeginPopupContextItem())
+                {
+                        // if(ImGui::MenuItem("Delete Entity"))
+
+                        // state.m_World.CreateEntity()
                 }
 
                 if (opened)

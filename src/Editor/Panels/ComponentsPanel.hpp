@@ -19,7 +19,12 @@ struct ComponentsPanel
                         if (ImGui::Begin("Components", &ShowWindow))
                         {
                                 if (state.m_SelectedEntityID != Luddite::NullEntityID)
+                                {
                                         DrawEntityComponents(state.m_World.GetEntityFromID(state.m_SelectedEntityID), history);
+                                        if (ImGui::Button("Add Component"))
+                                                ImGui::OpenPopup("AddComponentPopup");
+                                        if (ImGui::BeginPopup("AddComponentPopup"))
+                                }
                         }
                         ImGui::End();
                 }
@@ -43,29 +48,37 @@ struct ComponentsPanel
                 C_Transform3D* pTransform = entity.TryComponent<C_Transform3D>();
                 if (pTransform)
                 {
-                        C_Transform3D old = *pTransform;
-                        if (ImGui::DragFloat3("Translation", glm::value_ptr(pTransform->Translation), 0.1f))
-                                history.ExecuteCommand<ReplaceComponentCommand<C_Transform3D> >(entity, old, *pTransform);
-                        if (ImGui::DragFloat3("Rotation", glm::value_ptr(pTransform->Rotation), 0.1f))
-                                history.ExecuteCommand<ReplaceComponentCommand<C_Transform3D> >(entity, old, *pTransform);
-                        if (ImGui::DragFloat3("Scale", glm::value_ptr(pTransform->Scale), 0.1f))
-                                history.ExecuteCommand<ReplaceComponentCommand<C_Transform3D> >(entity, old, *pTransform);
+                        if (ImGui::TreeNodeEx((void*)typeid(C_Transform3D).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, "Transform"))
+                        {
+                                C_Transform3D old = *pTransform;
+                                if (ImGui::DragFloat3("Translation", glm::value_ptr(pTransform->Translation), 0.1f))
+                                        history.ExecuteCommand<ReplaceComponentCommand<C_Transform3D> >(entity, old, *pTransform);
+                                if (ImGui::DragFloat3("Rotation", glm::value_ptr(pTransform->Rotation), 0.1f))
+                                        history.ExecuteCommand<ReplaceComponentCommand<C_Transform3D> >(entity, old, *pTransform);
+                                if (ImGui::DragFloat3("Scale", glm::value_ptr(pTransform->Scale), 0.1f))
+                                        history.ExecuteCommand<ReplaceComponentCommand<C_Transform3D> >(entity, old, *pTransform);
+                                ImGui::TreePop();
+                        }
                 }
 
                 C_Camera* pCamera = entity.TryComponent<C_Camera>();
                 if (pCamera)
                 {
-                        C_Camera old = *pCamera;
-                        if (pCamera->Projection == Luddite::Camera::ProjectionType::PERSPECTIVE)
-                                if (ImGui::InputFloat("FOV", &pCamera->FOV))
+                        if (ImGui::TreeNodeEx((void*)typeid(C_Camera).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, "Camera"))
+                        {
+                                C_Camera old = *pCamera;
+                                if (pCamera->Projection == Luddite::Camera::ProjectionType::PERSPECTIVE)
+                                        if (ImGui::InputFloat("FOV", &pCamera->FOV))
+                                                history.ExecuteCommand<ReplaceComponentCommand<C_Camera> >(entity, old, *pCamera);
+                                if (pCamera->Projection == Luddite::Camera::ProjectionType::ORTHOGRAPHIC)
+                                        if (ImGui::InputFloat("Scale", &pCamera->OrthoScale))
+                                                history.ExecuteCommand<ReplaceComponentCommand<C_Camera> >(entity, old, *pCamera);
+                                if (ImGui::InputFloat("Clip Near", &pCamera->ClipNear))
                                         history.ExecuteCommand<ReplaceComponentCommand<C_Camera> >(entity, old, *pCamera);
-                        if (pCamera->Projection == Luddite::Camera::ProjectionType::ORTHOGRAPHIC)
-                                if (ImGui::InputFloat("Scale", &pCamera->OrthoScale))
+                                if (ImGui::InputFloat("Clip Far", &pCamera->ClipFar))
                                         history.ExecuteCommand<ReplaceComponentCommand<C_Camera> >(entity, old, *pCamera);
-                        if (ImGui::InputFloat("Clip Near", &pCamera->ClipNear))
-                                history.ExecuteCommand<ReplaceComponentCommand<C_Camera> >(entity, old, *pCamera);
-                        if (ImGui::InputFloat("Clip Far", &pCamera->ClipFar))
-                                history.ExecuteCommand<ReplaceComponentCommand<C_Camera> >(entity, old, *pCamera);
+                                ImGui::TreePop();
+                        }
                 }
         }
 };

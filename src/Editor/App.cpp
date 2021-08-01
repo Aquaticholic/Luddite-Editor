@@ -138,6 +138,8 @@ class Editor : public Luddite::Application
                                 g_SystemTable.pGameInstanceI->OnRender(lerp_alpha, m_pViewportPanel->GetRenderTarget());
                         }
                 }
+
+                m_History.ExecuteDefferedCommands();
                 // g_SystemTable.pGameInstanceI->OnRender(lerp_alpha, m_pMainWindow->GetRenderTarget());
         }
 

@@ -1,11 +1,5 @@
 #pragma once
-// #include "Editor/Runtime.hpp"
-#include "Editor/pch.hpp"
-
-#include "RuntimeInclude.h"
-RUNTIME_MODIFIABLE_INCLUDE;
-#include "RuntimeSourceDependency.h"
-RUNTIME_COMPILER_SOURCEDEPENDENCY;
+#include "pch.hpp"
 
 class BaseLayer : public Luddite::Layer
 {

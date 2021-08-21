@@ -1,6 +1,5 @@
 #pragma once
 #include "Editor/pch.hpp"
-#include "Editor/ECS/Components/Components.hpp"
 #include "Editor/EditorState.hpp"
 #include "Editor/History.hpp"
 #include "Editor/Commands/Commands.hpp"
@@ -24,6 +23,13 @@ struct ComponentsPanel
                                         if (ImGui::Button("Add Component"))
                                                 ImGui::OpenPopup("AddComponentPopup");
                                         if (ImGui::BeginPopup("AddComponentPopup"))
+                                        {
+                                                if (ImGui::MenuItem("Camera"))
+                                                {
+                                                        history.ExecuteCommand<AddComponentCommand<C_Camera> >(state.m_World.GetEntityFromID(state.m_SelectedEntityID));
+                                                }
+                                                ImGui::EndPopup();
+                                        }
                                 }
                         }
                         ImGui::End();
@@ -77,6 +83,22 @@ struct ComponentsPanel
                                         history.ExecuteCommand<ReplaceComponentCommand<C_Camera> >(entity, old, *pCamera);
                                 if (ImGui::InputFloat("Clip Far", &pCamera->ClipFar))
                                         history.ExecuteCommand<ReplaceComponentCommand<C_Camera> >(entity, old, *pCamera);
+                                ImGui::TreePop();
+                        }
+                }
+
+                C_PointLight* pPointLight = entity.TryComponent<C_PointLight>();
+                if (pPointLight)
+                {
+                        if (ImGui::TreeNodeEx((void*)typeid(C_PointLight).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, "Point Light"))
+                        {
+                                C_PointLight old = *pPointLight;
+                                if (ImGui::ColorEdit3("Color", glm::value_ptr(pPointLight->Color.GetVec3()), ImGuiColorEditFlags_PickerHueWheel) && !ImGui::IsMouseDown(0))
+                                        history.ExecuteCommand<ReplaceComponentCommand<C_PointLight> >(entity, old, *pPointLight);
+                                if (ImGui::InputFloat("Intensity", &pPointLight->Intensity) && !ImGui::IsMouseDown(0))
+                                        history.ExecuteCommand<ReplaceComponentCommand<C_PointLight> >(entity, old, *pPointLight);
+                                if (ImGui::InputFloat("Range", &pPointLight->Range) && !ImGui::IsMouseDown(0))
+                                        history.ExecuteCommand<ReplaceComponentCommand<C_PointLight> >(entity, old, *pPointLight);
                                 ImGui::TreePop();
                         }
                 }

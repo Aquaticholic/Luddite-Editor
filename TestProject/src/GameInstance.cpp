@@ -1,30 +1,12 @@
-#include "Editor/Runtime.hpp"
+#include "pch.hpp"
+#include "Layers.hpp"
 
-#include "ObjectInterfacePerModule.h"
-#include "IObject.h"
-#include "Editor/GameInstance.hpp"
-#include "Editor/SystemTable.h"
-#include "ISimpleSerializer.h"
-#include "IRuntimeObjectSystem.h"
-#include "IObjectFactorySystem.h"
-
-// #include "Editor/Layers/Layers.hpp"
-#include "Editor/Layers/BaseLayer.hpp"
-
-
-enum InterfaceIDEnumLuddite
-{
-        IID_IRCCPP_GAME_INSTANCE = IID_ENDInterfaceID, // IID_ENDInterfaceID from IObject.h InterfaceIDEnum
-
-        IID_ENDInterfaceIDEnumLuddite
-};
-
-struct GameInstance : GameInstanceI, TInterface<IID_IRCCPP_GAME_INSTANCE, IObject>
+struct GameInstance : public Luddite::IGameInstance
 {
         GameInstance()
         {
-                PerModuleInterface::g_pSystemTable->pGameInstanceI = this;
-                g_pSys->pRuntimeObjectSystem->GetObjectFactorySystem()->SetObjectConstructorHistorySize(10);
+                // PerModuleInterface::g_pSystemTable->pGameInstanceI = this;
+                // g_pSys->pRuntimeObjectSystem->GetObjectFactorySystem()->SetObjectConstructorHistorySize(10);
         }
 
         // void Serialize(ISimpleSerializer *pSerializer) override
@@ -35,6 +17,7 @@ struct GameInstance : GameInstanceI, TInterface<IID_IRCCPP_GAME_INSTANCE, IObjec
         // }
         void Initialize() override
         {
+                RegisterECSTypeIds();
                 LD_LOG_INFO("Initialized");
                 m_LayerStack.PushLayer(std::make_shared<BaseLayer>());
                 m_LayerStack.UpdateStack();
@@ -43,6 +26,10 @@ struct GameInstance : GameInstanceI, TInterface<IID_IRCCPP_GAME_INSTANCE, IObjec
         void OnUpdate(float delta_time) override
         {
                 m_LayerStack.UpdateLayers(delta_time);
+                for (auto& event : Luddite::Events::GetList<Luddite::KeyPressEvent>())
+                {
+                        LD_LOG_INFO("press");
+                }
         }
 
         void OnRender(float lerp_alpha, Luddite::RenderTarget render_target) override
@@ -58,16 +45,34 @@ struct GameInstance : GameInstanceI, TInterface<IID_IRCCPP_GAME_INSTANCE, IObjec
         void LoadWorld(std::shared_ptr<Luddite::Layer> layer, Luddite::World& world)
         {
                 world.CloneTo<
-                        C_Transform3D, C_Model, C_Camera,
+                        C_Camera, C_Transform3D, C_Model,
                         C_CollisionShape, C_Collider, C_RigidBody,
                         C_PointLight, C_SpotLight, C_DirectionalLight
                         >(layer->GetWorld());
                 world.CloneSingletonsTo<C_ActiveCamera>(layer->GetWorld());
+                // layer->GetWorld().GetEntityFromID(Luddite::EntityID(2)).AddComponent<C_Camera>();
         }
 
         Luddite::LayerStack& GetLayerStack() {return m_LayerStack;}
-
         Luddite::LayerStack m_LayerStack;
 };
 
-REGISTERSINGLETON(GameInstance, true);
+#ifdef _WIN32
+__declspec(dllexport)           //should create file with export import macros etc.
+#else
+__attribute__((visibility("default")))
+#endif
+Luddite::IGameInstance* NewGameInstance()
+{
+        return static_cast<Luddite::IGameInstance*>(new GameInstance);
+}
+
+#ifdef _WIN32
+__declspec(dllexport)           //should create file with export import macros etc.
+#else
+__attribute__((visibility("default")))
+#endif
+void FreeGameInstance(Luddite::IGameInstance* pGameInstance)
+{
+        delete static_cast<GameInstance*>(pGameInstance);
+}

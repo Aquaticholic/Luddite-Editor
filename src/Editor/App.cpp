@@ -11,13 +11,13 @@
 #include "Editor/Keybinds.hpp"
 
 //Runtime
-#include "RuntimeObjectSystem.h"
-#include "RCCppLogger.hpp"
-#include "SystemTable.h"
-#include "Editor/GameInstance.hpp"
+#include "Editor/GameInstanceCompiler.hpp"
+// #include "RuntimeObjectSystem.h"
+// #include "RCCppLogger.hpp"
+// #include "SystemTable.h"
 
 //ECS
-#include "Editor/ECS/Components/Components.hpp"
+#include "ECS/ComponentDescription.hpp"
 
 //Panels
 #include "Editor/Panels/ViewportPanel.hpp"
@@ -26,9 +26,6 @@
 
 namespace Editor
 {
-static RCCppLogger g_Logger;
-static SystemTable g_SystemTable;
-
 class Editor : public Luddite::Application
 {
         public:
@@ -37,13 +34,11 @@ class Editor : public Luddite::Application
                 LD_LOG_INFO("Test Application starting");
                 CreateMainWindow("Luddite Test App");
                 LD_LOG_INFO("Window Created");
-                InitRCCpp();
-                g_SystemTable.pGameInstanceI->Initialize();
                 ImGui::SetCurrentContext(m_pMainWindow->GetImGuiContext());
         }
         ~Editor()
         {
-                CleanRCCpp();
+                // CleanRCCpp();
         }
 
         void Initialize()
@@ -56,12 +51,13 @@ class Editor : public Luddite::Application
                 m_EditorState.m_World.RegisterSystem<S_SceneSubmitter>();
                 m_EditorState.m_World.ConfigureSystems();
 
+                Luddite::Shader::Handle test_shader = Luddite::Assets::GetShaderLibrary().GetAsset(5815116752502599444ULL);
 
                 {
                         auto e = m_EditorState.m_World.CreateEntity();
                         e.AddComponent<C_Name>("Monkey See");
                         auto& transform = e.AddComponent<C_Transform3D>();
-                        e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(13985675099142567469));
+                        e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(13985675099142567469ULL));
                         auto& rb = e.AddComponent<C_RigidBody>();
                         rb.mass = 0.f;
                 }
@@ -71,7 +67,7 @@ class Editor : public Luddite::Application
                         e.AddComponent<C_Name>("Monkey Do");
                         auto& transform = e.AddComponent<C_Transform3D>();
                         transform.Translation.x = 1.f;
-                        e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(11702536871773590062));
+                        e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(11702536871773590062ULL));
                         C_CollisionShape::CollisionShape m_Shape;
                         m_Shape.type = C_CollisionShape::Shape::Box;
                         m_Shape.data.x = 1.;
@@ -89,6 +85,7 @@ class Editor : public Luddite::Application
                         // transform.r
                         transform.Rotation.y = glm::pi<float>();
                         cam.AddComponent<C_Camera>();
+                        auto ccccc = cam.GetComponent<C_Camera>();
                         m_EditorState.m_World.SetSingleton<C_ActiveCamera>(cam.GetID());
                 }
 
@@ -99,13 +96,34 @@ class Editor : public Luddite::Application
                         auto& c_light = light.AddComponent<C_PointLight>();
                         c_light.Range = 10.f;
                 }
+                m_EditorState.m_CurrentProjectDir = "/home/evan/Documents/Dev/Luddite-Editor/TestProject";
+                m_EditorState.m_GameInstanceCompiler.SetProjectDirectory(m_EditorState.m_CurrentProjectDir);
+                m_EditorState.m_GameInstanceCompiler.Compile();
         }
 
         void OnUpdate(float delta_time)
         {
-                UpdateRCCpp(delta_time);
+                m_EditorState.m_GameInstanceCompiler.Update(delta_time);
+                if (m_EditorState.m_GameInstanceCompiler.IsCompilationDone())
+                {
+                        m_EditorState.m_GameInstanceCompiler.LoadNewLib();
+                        Luddite::IGameInstance* pNewGameInstance = m_EditorState.m_GameInstanceCompiler.GetNewGameInstance();
+                        if (m_EditorState.m_pGameInstance)
+                        {
+                                //transfer game state if game is running
+                                if (m_EditorState.m_GameRunning)
+                                {
+                                        // pNewGameInstance->LoadWorld()
+                                }
+                                m_EditorState.m_GameInstanceCompiler.FreeOldGameInstance(m_EditorState.m_pGameInstance);
+                        }
+                        m_EditorState.m_GameInstanceCompiler.FreeOldLib();
+                        m_EditorState.m_pGameInstance = pNewGameInstance;
+                        LD_LOG_INFO("Compilation Loaded");
+                }
+                // UpdateRCCpp(delta_time);
                 if (m_EditorState.m_GameRunning)
-                        g_SystemTable.pGameInstanceI->OnUpdate(delta_time);
+                        m_EditorState.m_pGameInstance->OnUpdate(delta_time);
         }
 
         void OnRender(float lerp_alpha)
@@ -135,7 +153,7 @@ class Editor : public Luddite::Application
                         }
                         else
                         {
-                                g_SystemTable.pGameInstanceI->OnRender(lerp_alpha, m_pViewportPanel->GetRenderTarget());
+                                m_EditorState.m_pGameInstance->OnRender(lerp_alpha, m_pViewportPanel->GetRenderTarget());
                         }
                 }
 
@@ -149,7 +167,7 @@ class Editor : public Luddite::Application
                 m_pScenePanel->Draw(m_EditorState, m_History);
                 m_pViewportPanel->Draw(m_EditorState, m_History);
                 m_pComponentsPanel->Draw(m_EditorState, m_History);
-                g_SystemTable.pGameInstanceI->OnImGuiRender(lerp_alpha, m_pMainWindow->GetRenderTarget());
+                // g_SystemTable.pGameInstanceI->OnImGuiRender(lerp_alpha, m_pMainWindow->GetRenderTarget());
 
                 if (Luddite::Events::GetList<RunGameEvent>().GetSize() > 0)
                 {
@@ -223,64 +241,72 @@ class Editor : public Luddite::Application
 
         void RunGameInstance()
         {
-                // g_SystemTable.pGameInstanceI->Initialize();
-                auto layer = g_SystemTable.pGameInstanceI->GetLayerStack().GetLayerByName("Test");
-                if (layer)
+                if (m_EditorState.m_pGameInstance)
                 {
-                        g_SystemTable.pGameInstanceI->LoadWorld(layer, m_EditorState.m_World);
-                }
-                m_EditorState.m_GameRunning = true;
-        }
-
-        bool InitRCCpp()
-        {
-                g_SystemTable.pRuntimeObjectSystem = new RuntimeObjectSystem;
-                g_SystemTable.pRuntimeObjectSystem->SetFastCompileMode(true);
-                g_SystemTable.pRuntimeObjectSystem->SetOptimizationLevel(RCppOptimizationLevel::RCCPPOPTIMIZATIONLEVEL_DEBUG);
-
-                if (!g_SystemTable.pRuntimeObjectSystem->Initialise(&g_Logger, &g_SystemTable))
-                {
-                        delete g_SystemTable.pRuntimeObjectSystem;
-                        g_SystemTable.pRuntimeObjectSystem = 0;
-                        return false;
-                }
-
-                g_SystemTable.pRuntimeObjectSystem->CleanObjectFiles();
-                #ifndef LD_PLATFORM_WINDOWS
-                g_SystemTable.pRuntimeObjectSystem->SetAdditionalCompileOptions("-std=c++17 -D" LD_PLATFORM " -D" LD_CONFIGURATION " -include cmake_pch.hxx -H");
-                #endif
-
-                // ensure include directories are set - use location of this file as starting point
-                //this file (App.cpp) must remain in the src/editor folder
-                FileSystemUtils::Path basePath = g_SystemTable.pRuntimeObjectSystem->FindFile(__FILE__).ParentPath().ParentPath();
-                #define ADD_DIR(path) g_SystemTable.pRuntimeObjectSystem->AddIncludeDir(#path);
-                ENGINE_INCLUDE_DIRS
-                #undef ADD_DIR
-
-                #define ADD_DIR(path) g_SystemTable.pRuntimeObjectSystem->AddLibraryDir(#path);
-                ENGINE_LIBRARY_DIRS
-                #undef ADD_DIR
-
-                return true;
-        }
-
-        void UpdateRCCpp(float dt)
-        {
-                if (g_SystemTable.pRuntimeObjectSystem->GetIsCompiledComplete())
-                {
-                        g_SystemTable.pRuntimeObjectSystem->LoadCompiledModule();
-                        g_SystemTable.pGameInstanceI->Initialize();
-                }
-
-                if (!g_SystemTable.pRuntimeObjectSystem->GetIsCompiling())
-                {
-                        g_SystemTable.pRuntimeObjectSystem->GetFileChangeNotifier()->Update(dt);
+                        m_EditorState.m_pGameInstance->Initialize();
+                        auto layer = m_EditorState.m_pGameInstance->GetLayerStack().GetLayerByName("Test");
+                        if (layer)
+                        {
+                                // m_EditorState.m_World.CloneTo<
+                                //         C_Camera, C_Transform3D, C_Model,
+                                //         C_CollisionShape, C_Collider, C_RigidBody,
+                                //         C_PointLight, C_SpotLight, C_DirectionalLight
+                                //         >(layer->GetWorld());
+                                m_EditorState.m_pGameInstance->LoadWorld(layer, m_EditorState.m_World);
+                        }
+                        m_EditorState.m_GameRunning = true;
                 }
         }
 
-        void CleanRCCpp()
-        {
-        }
+        // bool InitRCCpp()
+        // {
+        //         g_SystemTable.pRuntimeObjectSystem = new RuntimeObjectSystem;
+        //         g_SystemTable.pRuntimeObjectSystem->SetFastCompileMode(true);
+        //         g_SystemTable.pRuntimeObjectSystem->SetOptimizationLevel(RCppOptimizationLevel::RCCPPOPTIMIZATIONLEVEL_DEBUG);
+
+        //         if (!g_SystemTable.pRuntimeObjectSystem->Initialise(&g_Logger, &g_SystemTable))
+        //         {
+        //                 delete g_SystemTable.pRuntimeObjectSystem;
+        //                 g_SystemTable.pRuntimeObjectSystem = 0;
+        //                 return false;
+        //         }
+
+        //         g_SystemTable.pRuntimeObjectSystem->CleanObjectFiles();
+        //         #ifndef LD_PLATFORM_WINDOWS
+        // g_SystemTable.pRuntimeObjectSystem->SetAdditionalCompileOptions("-std=c++17 -D" LD_PLATFORM " -D" LD_CONFIGURATION " -include cmake_pch.hxx -H");
+        //         #endif
+
+        //         // ensure include directories are set - use location of this file as starting point
+        //         //this file (App.cpp) must remain in the src/editor folder
+        //         FileSystemUtils::Path basePath = g_SystemTable.pRuntimeObjectSystem->FindFile(__FILE__).ParentPath().ParentPath();
+        //         #define ADD_DIR(path) g_SystemTable.pRuntimeObjectSystem->AddIncludeDir(#path);
+        //         ENGINE_INCLUDE_DIRS
+        //         #undef ADD_DIR
+
+        //         #define ADD_DIR(path) g_SystemTable.pRuntimeObjectSystem->AddLibraryDir(#path);
+        //         ENGINE_LIBRARY_DIRS
+        //         #undef ADD_DIR
+
+        //         return true;
+        // }
+
+        // void UpdateRCCpp(float dt)
+        // {
+        //         if (g_SystemTable.pRuntimeObjectSystem->GetIsCompiledComplete())
+        //         {
+        //                 g_SystemTable.pRuntimeObjectSystem->LoadCompiledModule();
+        //                 g_SystemTable.pGameInstanceI->Initialize();
+        //         }
+
+        //         if (!g_SystemTable.pRuntimeObjectSystem->GetIsCompiling())
+        //         {
+        //                 g_SystemTable.pRuntimeObjectSystem->GetFileChangeNotifier()->Update(dt);
+        //         }
+        // }
+
+        // void CleanRCCpp()
+        // {
+        // }
 
         private:
         EditorState m_EditorState;

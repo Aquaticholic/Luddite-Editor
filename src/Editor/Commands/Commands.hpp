@@ -104,7 +104,7 @@ struct AddComponentCommand : public ICommand
 {
         Component comp;
         Luddite::Entity entity;
-        ReplaceComponentCommand(const Luddite::Entity& entity_, const Component& comp_ = {})
+        AddComponentCommand(const Luddite::Entity& entity_, const Component& comp_ = {})
                 : entity{entity_}, comp(comp_)
         {
         }

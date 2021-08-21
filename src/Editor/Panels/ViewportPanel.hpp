@@ -1,7 +1,6 @@
 #pragma once
 #include "Editor/pch.hpp"
 #include "Editor/Keybinds.hpp"
-#include "Editor/ECS/Components/Components.hpp"
 #include "Editor/EditorState.hpp"
 #include "Editor/History.hpp"
 #include "Editor/Commands/Commands.hpp"

@@ -1,6 +1,4 @@
-#include "Editor/Layers/BaseLayer.hpp"
-#include "Editor/Layers/EditorLayer.hpp"
-#include "Editor/ECS/Components/Components.hpp"
+#include "Layers/BaseLayer.hpp"
 
 // Luddite::Entity cam;
 void BaseLayer::Initialize()

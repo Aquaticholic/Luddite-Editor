@@ -4,3 +4,6 @@
 [submodule "ThirdParty/RuntimeCompiledCPlusPlus"]
 	path = ThirdParty/RuntimeCompiledCPlusPlus
 	url = https://github.com/Aquaticholic/RuntimeCompiledCPlusPlus
+[submodule "ThirdParty/metadesk"]
+	path = ThirdParty/metadesk
+	url = https://github.com/Dion-Systems/metadesk

@@ -1,0 +1,30 @@
+{
+	"configurations": {
+		"Launch": {
+			"adapter": "vscode-cpptools",
+			"configuration": {
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder}/Debug",
+				"program": "${workspaceFolder}/Debug/Editor",
+				"externalConsole": true,
+				"MIMode": "gdb",
+				"setupCommands": [
+					{
+						"description": "Enable pretty-printing for gdb",
+						"text": "-enable-pretty-printing",
+						"ignoreFailures": true
+					}
+				]
+			}
+		},
+		"Attach": {
+			"adapter": "vscode-cpptools",
+			"configuration": {
+				"request": "attach",
+				"program": "Debug/Editor",
+				"MIMode": "gdb"
+			}
+		}
+	}
+}

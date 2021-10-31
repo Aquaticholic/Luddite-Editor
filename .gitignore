@@ -37,3 +37,9 @@
 # Build
 bin/*
 TestProject/bin/*
+Debug/*
+TestProject/Debug/*
+Release/*
+TestProject/Release/*
+*/compile_commands.json
+.cache/*

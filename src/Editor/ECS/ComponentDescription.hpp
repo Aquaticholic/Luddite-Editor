@@ -1,8 +1,8 @@
 #pragma once
 #include "Editor/pch.hpp"
 
-
-
+namespace Editor
+{
 #define COMPONENT_DATA_TYPES_DECLARE \
         COMPONENT_DATA_TYPE_DECLARATION(F32, float) \
         COMPONENT_DATA_TYPE_DECLARATION(F64, double) \
@@ -82,6 +82,14 @@ struct ComponentDescription
                 members.push_back({type, current_offset, name});
                 current_offset += size;
         };
+        void AddMember(const EComponentDataTypes& type, const std::string& name, uint32_t offset)
+        {
+                members.push_back({type, offset, name});
+                auto size = ComponentDataTypeSizes[static_cast<uint32_t>(type)];
+                if (current_offset < offset + size)
+                        current_offset = offset + size;
+        }
+
         uint32_t current_offset = 0;
 };
 
@@ -104,4 +112,5 @@ void GenerateComponentHeader(const ComponentDescription& desc, std::ostream& str
         for (auto& member : desc.members)
                 stream << ComponentDataTypeCPPNames[static_cast<uint32_t>(member.type)] << " " << format_typename(member.name) << ";" << std::endl;
         stream << "};";
+}
 }

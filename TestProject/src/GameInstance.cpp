@@ -17,6 +17,7 @@ struct GameInstance : public Luddite::IGameInstance
         // }
         void Initialize() override
         {
+                LD_PROFILE_FUNCTION();
                 RegisterECSTypeIds();
                 LD_LOG_INFO("Initialized");
                 m_LayerStack.PushLayer(std::make_shared<BaseLayer>());
@@ -25,6 +26,7 @@ struct GameInstance : public Luddite::IGameInstance
 
         void OnUpdate(float delta_time) override
         {
+                LD_PROFILE_FUNCTION();
                 m_LayerStack.UpdateLayers(delta_time);
                 for (auto& event : Luddite::Events::GetList<Luddite::KeyPressEvent>())
                 {
@@ -34,16 +36,19 @@ struct GameInstance : public Luddite::IGameInstance
 
         void OnRender(float lerp_alpha, Luddite::RenderTarget render_target) override
         {
+                LD_PROFILE_FUNCTION();
                 m_LayerStack.RenderLayers(lerp_alpha, render_target);
         }
 
         void OnImGuiRender(float lerp_alpha, Luddite::RenderTarget render_target) override
         {
+                LD_PROFILE_FUNCTION();
                 m_LayerStack.RenderLayersImGui(lerp_alpha, render_target);
         }
 
         void LoadWorld(std::shared_ptr<Luddite::Layer> layer, Luddite::World& world)
         {
+                LD_PROFILE_FUNCTION();
                 world.CloneTo<
                         C_Camera, C_Transform3D, C_Model,
                         C_CollisionShape, C_Collider, C_RigidBody,

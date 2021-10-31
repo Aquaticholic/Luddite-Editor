@@ -1,5 +1,6 @@
 #pragma once
 #include "Editor/pch.hpp"
+#include "Luddite/Core/Event.hpp"
 
 namespace Editor
 {
@@ -24,7 +25,8 @@ struct KeyBind
         KEYBIND_DECLARATION(ResetRotation, "Reset Rotation", Luddite::IO::GetKeyCode(Luddite::Keys::E), Luddite::IO::GetModBit(Luddite::Keys::AltLeft)) \
         KEYBIND_DECLARATION(ResetScale, "Reset Scale", Luddite::IO::GetKeyCode(Luddite::Keys::R), Luddite::IO::GetModBit(Luddite::Keys::AltLeft)) \
         KEYBIND_DECLARATION(Rename, "Rename", Luddite::IO::GetKeyCode(Luddite::Keys::F2), 0) \
-        KEYBIND_DECLARATION(CenterCamera, "Center Camera", Luddite::IO::GetKeyCode(Luddite::Keys::F), 0)
+        KEYBIND_DECLARATION(CenterCamera, "Center Camera", Luddite::IO::GetKeyCode(Luddite::Keys::F), 0) \
+        KEYBIND_DECLARATION(ProfilingToggle, "Start/Stop Profiling", Luddite::IO::GetKeyCode(Luddite::Keys::P), 0)
 
 
 enum class eKeyBinds : uint16_t

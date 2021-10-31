@@ -1,3 +1,4 @@
+#include "Luddite/Core/Profiler.hpp"
 #define LD_ENTRYPOINT
 #include "Luddite/Core/EntryPoint.hpp"
 #include "Editor/pch.hpp"
@@ -23,6 +24,7 @@
 #include "Editor/Panels/ViewportPanel.hpp"
 #include "Editor/Panels/ScenePanel.hpp"
 #include "Editor/Panels/ComponentsPanel.hpp"
+#include "Editor/Panels/AssetBrowserPanel.hpp"
 
 namespace Editor
 {
@@ -43,21 +45,32 @@ class Editor : public Luddite::Application
 
         void Initialize()
         {
+                if (std::atexit([]() {Luddite::Profiler::EndSession();}) != 0)
+                        LD_LOG_ERROR("Failed to register std::atexit function!");
+                if (std::at_quick_exit([]() {Luddite::Profiler::EndSession();}) != 0)
+                        LD_LOG_ERROR("Failed to register std::at_quick_exit function!");
+                // std::set_terminate([]() {Luddite::Profiler::EndSession(); std::abort();});
+                Luddite::Profiler::BeginSession("Init");
+                Luddite::ProfileTimer timer("Initialize");
+
                 KeyBinds::Init();
                 m_pViewportPanel = std::make_unique<ViewportPanel>();
                 m_pScenePanel = std::make_unique<ScenePanel>();
                 m_pComponentsPanel = std::make_unique<ComponentsPanel>();
+                m_pAssetBrowserPanel = std::make_unique<AssetBrowserPanel>();
 
                 m_EditorState.m_World.RegisterSystem<S_SceneSubmitter>();
                 m_EditorState.m_World.ConfigureSystems();
 
-                Luddite::Shader::Handle test_shader = Luddite::Assets::GetShaderLibrary().GetAsset(5815116752502599444ULL);
+                Luddite::Handle<Luddite::Shader> test_shader = Luddite::Assets::GetShaderLibrary().GetAsset(14332508749617699857ULL);
+                // Luddite::Assets::GetBasicModelLibrary().GetAsset(15684352092669491599ULL);
 
                 {
                         auto e = m_EditorState.m_World.CreateEntity();
                         e.AddComponent<C_Name>("Monkey See");
                         auto& transform = e.AddComponent<C_Transform3D>();
                         e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(13985675099142567469ULL));
+                        // e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(13985675099142567469ULL));
                         auto& rb = e.AddComponent<C_RigidBody>();
                         rb.mass = 0.f;
                 }
@@ -67,7 +80,7 @@ class Editor : public Luddite::Application
                         e.AddComponent<C_Name>("Monkey Do");
                         auto& transform = e.AddComponent<C_Transform3D>();
                         transform.Translation.x = 1.f;
-                        e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(11702536871773590062ULL));
+                        e.AddComponent<C_Model>(Luddite::Assets::GetBasicModelLibrary().GetAsset(15684352092669491599ULL));
                         C_CollisionShape::CollisionShape m_Shape;
                         m_Shape.type = C_CollisionShape::Shape::Box;
                         m_Shape.data.x = 1.;
@@ -96,13 +109,16 @@ class Editor : public Luddite::Application
                         auto& c_light = light.AddComponent<C_PointLight>();
                         c_light.Range = 10.f;
                 }
-                m_EditorState.m_CurrentProjectDir = "/home/evan/Documents/Dev/Luddite-Editor/TestProject";
+                m_EditorState.m_CurrentProjectDir = "/home/evanl/Documents/Dev/Luddite-Projects/TestProject";
                 m_EditorState.m_GameInstanceCompiler.SetProjectDirectory(m_EditorState.m_CurrentProjectDir);
                 m_EditorState.m_GameInstanceCompiler.Compile();
+                timer.StopTimer();
+                Luddite::Profiler::EndSession();
         }
 
         void OnUpdate(float delta_time)
         {
+                LD_PROFILE_FUNCTION();
                 m_EditorState.m_GameInstanceCompiler.Update(delta_time);
                 if (m_EditorState.m_GameInstanceCompiler.IsCompilationDone())
                 {
@@ -126,8 +142,21 @@ class Editor : public Luddite::Application
                         m_EditorState.m_pGameInstance->OnUpdate(delta_time);
         }
 
+	void OnFixedUpdate(float delta_time)
+	{
+		LD_PROFILE_FUNCTION();
+                if (m_EditorState.m_GameRunning)
+                        m_EditorState.m_pGameInstance->OnFixedUpdate(delta_time);
+	}
+
         void OnRender(float lerp_alpha)
         {
+                if (KeyBinds::Pressed(eKeyBinds::ProfilingToggle))
+                        if (Luddite::Profiler::IsRunning())
+                                Luddite::Profiler::EndSession();
+                        else
+                                Luddite::Profiler::BeginSession("Benchmark");
+                LD_PROFILE_FUNCTION();
                 KeyBinds::Update();
 
                 // if (KeyBinds::ModsPressed(0))
@@ -137,6 +166,11 @@ class Editor : public Luddite::Application
 
                 if (KeyBinds::Pressed(eKeyBinds::Redo))
                         m_History.Redo();
+
+                //Sanity Checks
+                if (!m_EditorState.m_World.IsEntityIDValid(m_EditorState.m_SelectedEntityID))
+                        m_EditorState.m_SelectedEntityID = Luddite::NullEntityID;
+
                 // case Luddite::Keys::Z:
                 //         if (EditorPersistentInput::ctrl_down && !EditorPersistentInput::shift_down && !EditorPersistentInput::alt_down)
                 //         if (EditorPersistentInput::ctrl_down && EditorPersistentInput::shift_down && !EditorPersistentInput::alt_down)
@@ -163,10 +197,12 @@ class Editor : public Luddite::Application
 
         void OnImGuiRender(float lerp_alpha)
         {
+                LD_PROFILE_FUNCTION();
                 RenderImGuiDockspace();
                 m_pScenePanel->Draw(m_EditorState, m_History);
                 m_pViewportPanel->Draw(m_EditorState, m_History);
                 m_pComponentsPanel->Draw(m_EditorState, m_History);
+                m_pAssetBrowserPanel->Draw(m_EditorState, m_History);
                 // g_SystemTable.pGameInstanceI->OnImGuiRender(lerp_alpha, m_pMainWindow->GetRenderTarget());
 
                 if (Luddite::Events::GetList<RunGameEvent>().GetSize() > 0)
@@ -178,6 +214,7 @@ class Editor : public Luddite::Application
 
         void RenderImGuiDockspace()
         {
+                LD_PROFILE_FUNCTION();
                 static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
                 ImGuiViewport* viewport = ImGui::GetMainViewport();
                 ImGui::SetNextWindowPos(viewport->Pos);
@@ -207,11 +244,13 @@ class Editor : public Luddite::Application
 
                         auto dock_id_right = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, 0.25f, nullptr, &dockspace_id);
                         auto dock_id_left = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.3f, nullptr, &dockspace_id);
+                        auto dock_id_bottom = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Down, 0.30f, nullptr, &dockspace_id);
                         // auto dock_id_bottom_left = ImGui::DockBuilderSplitNode(dock_id_left, ImGuiDir_Down, 0.3f, nullptr, &dock_id_left);
 
                         ImGui::DockBuilderDockWindow("Viewport", dockspace_id);;
                         ImGui::DockBuilderDockWindow("Scene", dock_id_left);
                         ImGui::DockBuilderDockWindow("Components", dock_id_right);
+                        ImGui::DockBuilderDockWindow("Asset Browser", dock_id_bottom);
 
                         ImGui::DockBuilderFinish(dockspace_id);
                 }
@@ -232,6 +271,7 @@ class Editor : public Luddite::Application
                                 ImGui::MenuItem("Viewport", NULL, &m_pViewportPanel->ShowWindow);
                                 ImGui::MenuItem("Scene", NULL, &m_pScenePanel->ShowWindow);
                                 ImGui::MenuItem("Components", NULL, &m_pComponentsPanel->ShowWindow);
+                                ImGui::MenuItem("Asset Browser", NULL, &m_pAssetBrowserPanel->ShowWindow);
                                 ImGui::EndMenu();
                         }
                         ImGui::EndMenuBar();
@@ -241,6 +281,7 @@ class Editor : public Luddite::Application
 
         void RunGameInstance()
         {
+                LD_PROFILE_FUNCTION();
                 if (m_EditorState.m_pGameInstance)
                 {
                         m_EditorState.m_pGameInstance->Initialize();
@@ -314,6 +355,7 @@ class Editor : public Luddite::Application
         std::unique_ptr<ViewportPanel> m_pViewportPanel;
         std::unique_ptr<ScenePanel> m_pScenePanel;
         std::unique_ptr<ComponentsPanel> m_pComponentsPanel;
+        std::unique_ptr<AssetBrowserPanel> m_pAssetBrowserPanel;
 };
 }
 

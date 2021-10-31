@@ -120,6 +120,27 @@ struct AddComponentCommand : public ICommand
         }
 };
 
+template <typename Component>
+struct DeleteComponentCommand : public ICommand
+{
+        Component comp;
+        Luddite::Entity entity;
+        DeleteComponentCommand(const Luddite::Entity& entity_, const Component& comp_ = {})
+                : entity{entity_}, comp(comp_)
+        {
+        }
+
+        void Execute()
+        {
+                entity.RemoveComponent<Component>();
+        }
+
+        void Unexecute()
+        {
+                entity.AddComponent<Component>(comp);
+        }
+};
+
 struct CreateEmptyEntityCommand : public ICommand
 {
         Luddite::EntityID id;
@@ -138,6 +159,26 @@ struct CreateEmptyEntityCommand : public ICommand
         void Unexecute()
         {
                 pWorld->DestroyEntityFromID(id);
+        }
+};
+
+struct DeleteEntityCommand : public ICommand
+{
+        Luddite::EntityID id;
+        Luddite::World* pWorld;
+        DeleteEntityCommand(Luddite::World& world, const Luddite::EntityID& id_)
+                : id(id_)
+        {
+                pWorld = &world;
+        }
+        void Execute()
+        {
+                pWorld->DestroyEntityFromID(id);
+        }
+        void Unexecute()
+        {
+                auto e = pWorld->CreateEntity(id);
+                LD_VERIFY(e.GetID() == id, "Undo tried to create entity with id: {}, but was unable to!", id);
         }
 };
 }

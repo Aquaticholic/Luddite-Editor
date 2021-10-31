@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 3.6)
 
-project(Luddite-Editor LANGUAGES CXX VERSION 0.0)
+
+project(Luddite-Editor LANGUAGES C CXX VERSION 0.0)
+#set(CMAKE_CXX_COMPILER /usr/bin/g++)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -64,3 +66,5 @@ foreach(path IN LISTS ENGINE_INCLUDE)
         file(COPY ${header} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Dev/include/${rel_dir})
     endforeach()
 endforeach()
+
+file(COPY ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json DESTINATION ${CMAKE_SOURCE_DIR})

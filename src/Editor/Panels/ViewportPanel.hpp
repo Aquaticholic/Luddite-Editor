@@ -51,6 +51,7 @@ struct ViewportPanel
 
         void Draw(EditorState& state, History& history)
         {
+                LD_PROFILE_FUNCTION();
                 if (ShowWindow)
                 {
                         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -109,7 +110,7 @@ struct ViewportPanel
                                                                 c_selected_transform.Rotation.y = glm::radians(c_selected_transform.Rotation.y);
                                                                 c_selected_transform.Rotation.z = glm::radians(c_selected_transform.Rotation.z);
                                                         }
-                                                        else
+                                                        else if (ImGui::IsWindowFocused())
                                                         {
                                                                 if (pUsing)
                                                                 {

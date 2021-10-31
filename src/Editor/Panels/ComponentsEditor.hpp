@@ -9,6 +9,7 @@ struct ComponentsPanel
 
         void Draw(Luddite::World& world, Luddite::EntityID& selected_id)
         {
+                LD_PROFILE_FUNCTION();
                 world.GetRegistry().visit([&](const auto info) {
                 });
         }

@@ -100,14 +100,17 @@ std::string format_typename(const std::string& name)
         for (char c : name)
         {
                 if (c == ' ')
-                        c = '_';
+			continue;
+                        //c = '_';
                 new_name.push_back(c);
         }
         new_name.shrink_to_fit();
+	return new_name;
 };
 
 void GenerateComponentHeader(const ComponentDescription& desc, std::ostream& stream)
 {
+	stream << "//This code has been generated from the description for component " << desc.name << ". Do not modify!" << std::endl;
         stream << "struct C_" << format_typename(desc.name) << " {" << std::endl;
         for (auto& member : desc.members)
                 stream << ComponentDataTypeCPPNames[static_cast<uint32_t>(member.type)] << " " << format_typename(member.name) << ";" << std::endl;
